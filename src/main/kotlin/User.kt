@@ -44,4 +44,27 @@ class UserService(private val connection: Connection) {
             null
         }
     }
+
+    // Функция для регистрации пользователя
+    fun registerUser(email: String, password: String): User? {
+        // Сначала проверяем, существует ли пользователь с таким email
+        if (getUserByEmail(email) != null) {
+            return null
+        }
+
+        val query = "INSERT INTO users (email, password) VALUES (?, ?) RETURNING id, email, password"
+        val preparedStatement = connection.prepareStatement(query)
+        preparedStatement.setString(1, email)
+        preparedStatement.setString(2, password)
+        val resultSet = preparedStatement.executeQuery()
+        return if (resultSet.next()) {
+            User(
+                id = resultSet.getInt("id"),
+                email = resultSet.getString("email"),
+                password = resultSet.getString("password")
+            )
+        } else {
+            null
+        }
+    }
 }

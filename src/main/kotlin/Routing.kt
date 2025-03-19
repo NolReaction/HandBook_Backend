@@ -30,10 +30,7 @@ fun Application.configureRouting() {
     }
 
     routing {
-        get("/") {
-            call.respondText("Hello World!")
-        }
-
+        // Проверяем авторизацию
         post("/login") {
             val loginRequest = call.receive<LoginRequest>()
 
@@ -56,5 +53,36 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
             }
         }
+
+        // Выполняем регистрацию
+        post("/register") {
+            val registerRequest = call.receive<RegisterRequest>()
+
+            // Сначала проверяем, существует ли пользователь с таким email
+            val existingUser = userService.getUserByEmail(registerRequest.email)
+            if (existingUser != null) {
+                // Если пользователь уже существует, возвращаем HTTP статус 409 Conflict
+                call.respond(HttpStatusCode.Conflict, "User already exists")
+                return@post
+            }
+
+            // Если пользователь не найден, выполняем регистрацию
+            val user = userService.registerUser(registerRequest.email, registerRequest.password)
+            if (user != null) {
+                val token = JWT.create()
+                    .withClaim("userId", user.id)
+                    .withClaim("userEmail", user.email)
+                    .sign(Algorithm.HMAC256("secret"))
+                val registerResponse = RegisterResponse(
+                    token = token,
+                    userId = user.id!!,
+                    userEmail = user.email
+                )
+                call.respond(registerResponse)
+            } else {
+                call.respond(HttpStatusCode.BadRequest, "Registration failed")
+            }
+        }
+
     }
 }
