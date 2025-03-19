@@ -7,7 +7,8 @@ import java.sql.Connection
 data class User(
     val id: Int? = null,
     val email: String,
-    val password: String
+    val password: String,
+    val is_verified: Boolean
 )
 
 class UserService(private val connection: Connection) {
@@ -19,7 +20,7 @@ class UserService(private val connection: Connection) {
                     "email VARCHAR(255) UNIQUE NOT NULL," +
                     "password VARCHAR(255) NOT NULL, " +
                     "created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), " +
-                    "avatar BYTEA" +
+                    "is_verified BOOLEAN NOT NULL DEFAULT FALSE" +
                     ");"
     }
 
@@ -30,7 +31,7 @@ class UserService(private val connection: Connection) {
 
     // Функция для поиска пользователя по email
     fun getUserByEmail(email: String): User? {
-        val query = "SELECT id, email, password FROM users WHERE email = ?"
+        val query = "SELECT id, email, password, is_verified FROM users WHERE email = ?"
         val preparedStatement = connection.prepareStatement(query)
         preparedStatement.setString(1, email)
         val resultSet = preparedStatement.executeQuery()
@@ -38,7 +39,8 @@ class UserService(private val connection: Connection) {
             User(
                 id = resultSet.getInt("id"),
                 email = resultSet.getString("email"),
-                password = resultSet.getString("password")
+                password = resultSet.getString("password"),
+                is_verified = resultSet.getBoolean("is_verified")
             )
         } else {
             null
@@ -52,7 +54,7 @@ class UserService(private val connection: Connection) {
             return null
         }
 
-        val query = "INSERT INTO users (email, password) VALUES (?, ?) RETURNING id, email, password"
+        val query = "INSERT INTO users (email, password) VALUES (?, ?) RETURNING id, email, password, is_verified"
         val preparedStatement = connection.prepareStatement(query)
         preparedStatement.setString(1, email)
         preparedStatement.setString(2, password)
@@ -61,7 +63,8 @@ class UserService(private val connection: Connection) {
             User(
                 id = resultSet.getInt("id"),
                 email = resultSet.getString("email"),
-                password = resultSet.getString("password")
+                password = resultSet.getString("password"),
+                is_verified = resultSet.getBoolean("is_verified")
             )
         } else {
             null

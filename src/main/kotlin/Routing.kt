@@ -46,7 +46,8 @@ fun Application.configureRouting() {
                 val loginResponse = LoginResponse(
                     token = token,
                     userId = user.id!!,
-                    userEmail = user.email
+                    userEmail = user.email,
+                    is_verified = user.is_verified
                 )
                 call.respond(loginResponse)
             } else {
@@ -76,7 +77,8 @@ fun Application.configureRouting() {
                 val registerResponse = RegisterResponse(
                     token = token,
                     userId = user.id!!,
-                    userEmail = user.email
+                    userEmail = user.email,
+                    is_verified = false
                 )
                 call.respond(registerResponse)
             } else {
