@@ -37,4 +37,6 @@ dependencies {
     implementation(libs.ktor.server.config.yaml)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
+
+    implementation ("com.sun.mail:javax.mail:1.6.2")
 }

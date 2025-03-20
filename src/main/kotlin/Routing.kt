@@ -70,10 +70,29 @@ fun Application.configureRouting() {
             // Если пользователь не найден, выполняем регистрацию
             val user = userService.registerUser(registerRequest.email, registerRequest.password)
             if (user != null) {
+                // Генерируем token
                 val token = JWT.create()
                     .withClaim("userId", user.id)
                     .withClaim("userEmail", user.email)
                     .sign(Algorithm.HMAC256("secret"))
+
+                // Формируем тело письма (нужно сделать ссылку)
+                val emailBody = """
+                    Добро пожаловать в наше приложение!
+                    Для подтверждения почты перейдите по ссылке:
+                    http://176.114.71.165:8080/verify?code=${user.verification_code}
+                """.trimIndent()
+
+                // Отправляем письмо
+                EmailSender.sendEmail(
+                    to = registerRequest.email,
+                    subject = "Подтверждение регистрации",
+                    body = emailBody,
+                    from = "authhelper@mail.ru",
+                    password = "Eiiws0e7AQ14WtisuJYB"
+                )
+
+                // Отправляем ответ клиенту
                 val registerResponse = RegisterResponse(
                     token = token,
                     userId = user.id!!,
@@ -86,5 +105,23 @@ fun Application.configureRouting() {
             }
         }
 
+        get("/verify") {
+            val code = call.request.queryParameters["code"] ?: run {
+                call.respond(HttpStatusCode.BadRequest, "Missing code")
+                return@get
+            }
+            val user = userService.findByVerificationCode(code)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, "Invalid or expired code")
+                return@get
+            }
+
+            // Если нашли пользователя, ставим is_verified = true и очищаем verification_code
+            if (userService.verifyUser(user.id!!)) {
+                call.respondText("Email confirmed")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Verification failed")
+            }
+        }
     }
 }
