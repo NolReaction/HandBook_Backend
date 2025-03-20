@@ -76,11 +76,12 @@ fun Application.configureRouting() {
                     .withClaim("userEmail", user.email)
                     .sign(Algorithm.HMAC256("secret"))
 
-                // Формируем тело письма (нужно сделать ссылку)
+                // Формируем тело письма
+                // http://176.114.71.165:8080/verify?code=${user.verification_code}
                 val emailBody = """
                     Добро пожаловать в наше приложение!
                     Для подтверждения почты перейдите по ссылке:
-                    http://176.114.71.165:8080/verify?code=${user.verification_code}
+                    http://10.0.2.2:8080/verify?code=${user.verification_code}
                 """.trimIndent()
 
                 // Отправляем письмо
@@ -123,5 +124,33 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.InternalServerError, "Verification failed")
             }
         }
+
+        get("/profile") {
+            // Извлекаем заголовок Authorization
+            val authHeader = call.request.headers["Authorization"]
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                call.respond(HttpStatusCode.Unauthorized, "Missing or invalid token")
+                return@get
+            }
+            val token = authHeader.removePrefix("Bearer ").trim()
+            try {
+                // Декодируем токен
+                val jwtVerifier = JWT.require(Algorithm.HMAC256("secret")).build()
+                val decodedJWT = jwtVerifier.verify(token)
+                // Извлекаем userId из токена
+                val userId = decodedJWT.getClaim("userId").asInt()
+                // Получаем пользователя из базы данных
+                val userDto = userService.getUserById(userId)
+                if (userDto == null) {
+                    call.respond(HttpStatusCode.NotFound, "User not found")
+                } else {
+                    call.respond(userDto)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+            }
+        }
+
     }
 }

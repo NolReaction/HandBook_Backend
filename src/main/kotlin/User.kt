@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.data.model.UserDto
 import kotlinx.serialization.Serializable
 import java.sql.Connection
 import java.util.*
@@ -44,6 +45,22 @@ class UserService(private val connection: Connection) {
                 email = resultSet.getString("email"),
                 password = resultSet.getString("password"),
                 is_verified = resultSet.getBoolean("is_verified")
+            )
+        } else {
+            null
+        }
+    }
+
+    fun getUserById(id: Int): UserDto? {
+        val query = "SELECT id, email, is_verified FROM users WHERE id = ?"
+        val preparedStatement = connection.prepareStatement(query)
+        preparedStatement.setInt(1, id)
+        val resultSet = preparedStatement.executeQuery()
+        return if (resultSet.next()) {
+            UserDto(
+                id = resultSet.getInt("id"),
+                email = resultSet.getString("email"),
+                is_verified = resultSet.getBoolean("is_verified"),
             )
         } else {
             null

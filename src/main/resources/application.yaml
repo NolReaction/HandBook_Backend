@@ -6,16 +6,16 @@ ktor:
         port: 8080
 
 # Серверное решение
-postgres:
-  url: "jdbc:postgresql://176.114.71.165:5432/maindatabase"
-  user: selectel
-  password: "2318"
+#postgres:
+#  url: "jdbc:postgresql://176.114.71.165:5432/maindatabase"
+#  user: selectel
+#  password: "2318"
 
 # Тестовое решение
-#postgres:
-#  url: "jdbc:postgresql://localhost:5432/HandBook"
-#  user: sharky
-#  password: ""
+postgres:
+  url: "jdbc:postgresql://localhost:5432/HandBook"
+  user: sharky
+  password: ""
 
 jwt:
   domain: "https://jwt-provider-domain/"
