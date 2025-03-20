@@ -6,6 +6,8 @@ import com.example.data.model.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
+import io.ktor.server.html.*
+import kotlinx.html.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
@@ -13,6 +15,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.mindrot.jbcrypt.BCrypt
 import java.sql.Connection
+import java.util.*
 
 fun Application.configureRouting() {
 
@@ -95,11 +98,12 @@ fun Application.configureRouting() {
                     .sign(Algorithm.HMAC256("secret"))
 
                 // Формируем тело письма
-                // http://176.114.71.165:8080/verify?code=${user.verification_code}
+                val authServerLink = "http://176.114.71.165:8080/verify?code=${user.verification_code}"
+                val authTestLink = "http://10.0.2.2:8080/verify?code=${user.verification_code}"
                 val emailBody = """
                     Добро пожаловать в наше приложение!
                     Для подтверждения почты перейдите по ссылке:
-                    http://10.0.2.2:8080/verify?code=${user.verification_code}
+                    $authServerLink
                 """.trimIndent()
 
                 // Отправляем письмо
@@ -123,6 +127,91 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.BadRequest, "Registration failed")
             }
         }
+
+        post("/forgot-password") {
+            val request = call.receive<ForgotPasswordRequest>()
+            val email = request.email
+            val user = userService.getUserByEmail(email)
+
+            // Генерируем один и тот же ответ, чтобы не палить, есть ли такой email
+            val responseBody = ForgotPasswordMessageResponse("If this email is registered, a reset link has been sent")
+
+            if (user == null) {
+                call.respond(HttpStatusCode.OK, responseBody)
+                return@post
+            }
+
+            val resetToken = UUID.randomUUID().toString()
+            userService.updateResetToken(user.id!!, resetToken)
+
+            // Формируем ссылку для сброса пароля
+            val resetServerLink = "http://176.114.71.165:8080/reset-password?token=$resetToken"
+            val resetTestLink = "http://10.0.2.2:8080/reset-password?token=$resetToken"
+            val emailBody = """
+                Для восстановления пароля перейдите по следующей ссылке:
+                $resetServerLink
+            """.trimIndent()
+
+            // Отправляем письмо с помощью EmailSender
+            EmailSender.sendEmail(
+                to = email,
+                subject = "Password Reset Request",
+                body = emailBody,
+                from = "authhelper@mail.ru",
+                password = "Eiiws0e7AQ14WtisuJYB"
+            )
+            call.respond(HttpStatusCode.OK, responseBody)
+        }
+
+        get("/reset-password") {
+            val token = call.request.queryParameters["token"]
+            if (token == null) {
+                call.respondText("Missing token", ContentType.Text.Plain)
+                return@get
+            }
+            call.respondHtml {
+                head {
+                    title { +"Reset Password" }
+                }
+                body {
+                    h1 { +"Reset Your Password" }
+                    form(action = "/reset-password", method = FormMethod.post) {
+                        hiddenInput { name = "token"; value = token }
+                        passwordInput {
+                            name = "newPassword"
+                            placeholder = "Enter new password"
+                        }
+                        br
+                        submitInput { value = "Reset Password" }
+                    }
+                }
+            }
+        }
+
+        post("/reset-password") {
+            val params = call.receiveParameters()
+            val token = params["token"] ?: return@post call.respondText("Missing token", status = HttpStatusCode.BadRequest)
+            val newPassword = params["newPassword"] ?: return@post call.respondText("Missing new password", status = HttpStatusCode.BadRequest)
+
+            // Найдите пользователя по reset-токену. Например, добавьте метод findByResetToken(token: String)
+            val user = userService.findByResetToken(token)
+            if (user == null) {
+                call.respondText("Invalid or expired token", status = HttpStatusCode.BadRequest)
+                return@post
+            }
+
+            // Хешируем новый пароль
+            val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+
+            // Обновляем пароль пользователя в базе и удаляем reset-токен
+            val updateSuccess = userService.resetPassword(user.id!!, hashedPassword)
+            if (updateSuccess) {
+                call.respondText("Password has been reset successfully")
+            } else {
+                call.respondText("Password reset failed", status = HttpStatusCode.InternalServerError)
+            }
+        }
+
 
         get("/verify") {
             val code = call.request.queryParameters["code"] ?: run {

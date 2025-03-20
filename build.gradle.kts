@@ -43,4 +43,7 @@ dependencies {
 
     // Для безопасного хранения паролей
     implementation("org.mindrot:jbcrypt:0.4")
+
+    // Для html
+    implementation("io.ktor:ktor-server-html-builder:3.1.1")
 }
