@@ -11,6 +11,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.mindrot.jbcrypt.BCrypt
 import java.sql.Connection
 
 fun Application.configureRouting() {
@@ -37,19 +38,30 @@ fun Application.configureRouting() {
             // Получаем пользователя из БД по email
             val user = userService.getUserByEmail(loginRequest.email)
 
-            if (user != null && user.password == loginRequest.password) {
-                val token = JWT.create()
-                    .withClaim("userId", user.id)
-                    .withClaim("userEmail", user.email)
-                    .sign(Algorithm.HMAC256("secret"))
+            if (user != null) {
+                // user.password хранит bcrypt-хеш
+                val rawPasswordFromClient = loginRequest.password
+                val hashedPasswordFromDB = user.password
 
-                val loginResponse = LoginResponse(
-                    token = token,
-                    userId = user.id!!,
-                    userEmail = user.email,
-                    is_verified = user.is_verified
-                )
-                call.respond(loginResponse)
+                // Проверяем через BCrypt.checkpw
+                val passwordMatches = BCrypt.checkpw(rawPasswordFromClient, hashedPasswordFromDB)
+
+                if (passwordMatches) {
+                    val token = JWT.create()
+                        .withClaim("userId", user.id)
+                        .withClaim("userEmail", user.email)
+                        .sign(Algorithm.HMAC256("secret"))
+
+                    val loginResponse = LoginResponse(
+                        token = token,
+                        userId = user.id!!,
+                        userEmail = user.email,
+                        is_verified = user.is_verified
+                    )
+                    call.respond(loginResponse)
+                } else {
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
+                }
             } else {
                 call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
             }
@@ -58,6 +70,12 @@ fun Application.configureRouting() {
         // Выполняем регистрацию
         post("/register") {
             val registerRequest = call.receive<RegisterRequest>()
+
+            // Проверяем корректность email
+            if (!isValidEmail(registerRequest.email)) {
+                call.respond(HttpStatusCode.BadRequest, "Invalid email address")
+                return@post
+            }
 
             // Сначала проверяем, существует ли пользователь с таким email
             val existingUser = userService.getUserByEmail(registerRequest.email)

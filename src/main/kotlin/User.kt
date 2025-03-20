@@ -2,6 +2,7 @@ package com.example
 
 import com.example.data.model.UserDto
 import kotlinx.serialization.Serializable
+import org.mindrot.jbcrypt.BCrypt
 import java.sql.Connection
 import java.util.*
 
@@ -67,11 +68,14 @@ class UserService(private val connection: Connection) {
         }
     }
 
-    fun registerUser(email: String, password: String): User? {
-        // Сначала проверяем, существует ли пользователь с таким email
+    fun registerUser(email: String, rawPassword: String): User? {
+        // Проверяем, существует ли пользователь с таким email
         if (getUserByEmail(email) != null) {
             return null
         }
+
+        // Хешируем пароль
+        val hashedPassword = BCrypt.hashpw(rawPassword, BCrypt.gensalt())
 
         // Генерируем уникальный код для подтверждения почты
         val verificationCode = UUID.randomUUID().toString()
@@ -84,14 +88,14 @@ class UserService(private val connection: Connection) {
 
         val preparedStatement = connection.prepareStatement(query)
         preparedStatement.setString(1, email)
-        preparedStatement.setString(2, password)
+        preparedStatement.setString(2, hashedPassword)
         preparedStatement.setString(3, verificationCode)
         val resultSet = preparedStatement.executeQuery()
         return if (resultSet.next()) {
             User(
                 id = resultSet.getInt("id"),
                 email = resultSet.getString("email"),
-                password = resultSet.getString("password"),
+                password = resultSet.getString("password"), // это хеш, а не raw password
                 is_verified = resultSet.getBoolean("is_verified"),
                 verification_code = resultSet.getString("verification_code")
             )

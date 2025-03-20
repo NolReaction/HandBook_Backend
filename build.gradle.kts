@@ -38,5 +38,9 @@ dependencies {
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 
+    // Для отправки писем авторизации
     implementation ("com.sun.mail:javax.mail:1.6.2")
+
+    // Для безопасного хранения паролей
+    implementation("org.mindrot:jbcrypt:0.4")
 }
