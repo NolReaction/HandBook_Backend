@@ -261,10 +261,64 @@ fun Application.configureRouting() {
 
             // Проверяем валидность нового пароля
             if (!isValidPassword(newPassword)) {
-                call.respondText(
-                    "Password must be at least 6 characters and contain both letters and digits",
-                    status = HttpStatusCode.BadRequest
-                )
+                call.respondHtml {
+                    head {
+                        title { +"Invalid Password" }
+                        style {
+                            unsafe {
+                                raw(
+                                    """
+                            body {
+                                background-color: #f4f4f4;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                height: 100vh;
+                                font-family: Arial, sans-serif;
+                                margin: 0;
+                            }
+                            .container {
+                                background-color: #fff;
+                                padding: 2rem;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                                text-align: center;
+                            }
+                            .error {
+                                color: red;
+                                font-weight: bold;
+                                margin-bottom: 1rem;
+                            }
+                            button {
+                                padding: 0.5rem 1rem;
+                                background-color: #007BFF;
+                                color: #fff;
+                                border: none;
+                                border-radius: 4px;
+                                cursor: pointer;
+                            }
+                            button:hover {
+                                background-color: #0056b3;
+                            }
+                            """.trimIndent()
+                                )
+                            }
+                        }
+                    }
+                    body {
+                        div(classes = "container") {
+                            h1 { +"Invalid Password" }
+                            p(classes = "error") {
+                                +"Password must be at least 6 characters and contain both letters and digits"
+                            }
+                            // Кнопка, которая при нажатии возвращает пользователя на предыдущую страницу
+                            button(type = ButtonType.button) {
+                                attributes["onclick"] = "history.back()"
+                                +"Go Back"
+                            }
+                        }
+                    }
+                }
                 return@post
             }
 
@@ -281,11 +335,62 @@ fun Application.configureRouting() {
             // Обновляем пароль пользователя в базе и удаляем reset-токен
             val updateSuccess = userService.resetPassword(user.id!!, hashedPassword)
             if (updateSuccess) {
-                call.respondText("Password has been reset successfully")
+                call.respondHtml {
+                    head {
+                        title { +"Password Reset Successful" }
+                        style {
+                            unsafe {
+                                raw(
+                                    """
+                            body {
+                                background-color: #f4f4f4;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                height: 100vh;
+                                font-family: Arial, sans-serif;
+                                margin: 0;
+                            }
+                            .container {
+                                background-color: #fff;
+                                padding: 2rem;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                                text-align: center;
+                            }
+                            h1 {
+                                color: #333;
+                                margin-bottom: 1rem;
+                            }
+                            p {
+                                color: #555;
+                            }
+                            a {
+                                display: inline-block;
+                                margin-top: 1rem;
+                                color: #007BFF;
+                                text-decoration: none;
+                            }
+                            a:hover {
+                                text-decoration: underline;
+                            }
+                            """.trimIndent()
+                                )
+                            }
+                        }
+                    }
+                    body {
+                        div(classes = "container") {
+                            h1 { +"Password Reset Successful" }
+                            p { +"Your password has been reset successfully. You can now log in with your new password." }
+                        }
+                    }
+                }
             } else {
                 call.respondText("Password reset failed", status = HttpStatusCode.InternalServerError)
             }
         }
+
 
 
         get("/verify") {
@@ -299,13 +404,54 @@ fun Application.configureRouting() {
                 return@get
             }
 
-            // Если нашли пользователя, ставим is_verified = true и очищаем verification_code
             if (userService.verifyUser(user.id!!)) {
-                call.respondText("Email confirmed")
+                call.respondHtml {
+                    head {
+                        title { +"Email Confirmed" }
+                        style {
+                            unsafe {
+                                raw(
+                                    """
+                            body {
+                                background-color: #f0f0f0;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                height: 100vh;
+                                margin: 0;
+                                font-family: Arial, sans-serif;
+                            }
+                            .container {
+                                background-color: #fff;
+                                padding: 2rem;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                                text-align: center;
+                            }
+                            h1 {
+                                color: #333;
+                                margin-bottom: 1rem;
+                            }
+                            p {
+                                color: #555;
+                            }
+                            """
+                                )
+                            }
+                        }
+                    }
+                    body {
+                        div("container") {
+                            h1 { +"Email confirmed !" }
+                            p { +"Your email has been successfully verified. You can now log in." }
+                        }
+                    }
+                }
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Verification failed")
             }
         }
+
 
         get("/profile") {
             // Извлекаем заголовок Authorization
