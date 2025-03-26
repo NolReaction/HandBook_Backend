@@ -3,10 +3,12 @@ package com.example
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.data.model.*
+import com.example.functions.isValidEmail
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.html.*
+import io.ktor.server.plugins.*
 import kotlinx.html.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.statuspages.*
@@ -16,6 +18,9 @@ import io.ktor.server.routing.*
 import org.mindrot.jbcrypt.BCrypt
 import java.sql.Connection
 import java.util.*
+import com.example.functions.isBlocked
+import com.example.functions.recordLoginAttempt
+
 
 fun Application.configureRouting() {
 
@@ -33,9 +38,21 @@ fun Application.configureRouting() {
         json() // настройка JSON сериализации
     }
 
+    fun isValidPassword(password: String): Boolean {
+        return password.length >= 6 && password.any { it.isDigit() } && password.any { it.isLetter() }
+    }
+
     routing {
         // Проверяем авторизацию
         post("/login") {
+            // Здесь можно, например, получить IP адрес из заголовков:
+            val ipAddress = call.request.origin.remoteHost
+
+            if (isBlocked(ipAddress)) {
+                call.respond(HttpStatusCode.TooManyRequests, "Too many failed attempts. Please try again later.")
+                return@post
+            }
+
             val loginRequest = call.receive<LoginRequest>()
 
             // Получаем пользователя из БД по email
@@ -66,6 +83,7 @@ fun Application.configureRouting() {
                     call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
                 }
             } else {
+                recordLoginAttempt(ipAddress)
                 call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
             }
         }
@@ -172,17 +190,65 @@ fun Application.configureRouting() {
             call.respondHtml {
                 head {
                     title { +"Reset Password" }
+                    style {
+                        unsafe {
+                            raw("""
+                        body {
+                            font-family: Arial, sans-serif;
+                            background-color: #f4f4f4;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            height: 100vh;
+                            margin: 0;
+                        }
+                        .container {
+                            background-color: #fff;
+                            padding: 2rem;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                        }
+                        h1 {
+                            margin-bottom: 1rem;
+                            color: #333;
+                        }
+                        form {
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        input[type="password"] {
+                            padding: 0.5rem;
+                            margin-bottom: 1rem;
+                            border: 1px solid #ccc;
+                            border-radius: 4px;
+                        }
+                        input[type="submit"] {
+                            padding: 0.5rem;
+                            background-color: #007BFF;
+                            color: #fff;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                        }
+                        input[type="submit"]:hover {
+                            background-color: #0056b3;
+                        }
+                    """.trimIndent())
+                        }
+                    }
                 }
                 body {
-                    h1 { +"Reset Your Password" }
-                    form(action = "/reset-password", method = FormMethod.post) {
-                        hiddenInput { name = "token"; value = token }
-                        passwordInput {
-                            name = "newPassword"
-                            placeholder = "Enter new password"
+                    div(classes = "container") {
+                        h1 { +"Reset Your Password" }
+                        form(action = "/reset-password", method = FormMethod.post) {
+                            hiddenInput { name = "token"; value = token }
+                            passwordInput {
+                                name = "newPassword"
+                                placeholder = "Enter new password"
+                            }
+                            br
+                            submitInput { value = "Reset Password" }
                         }
-                        br
-                        submitInput { value = "Reset Password" }
                     }
                 }
             }
@@ -193,7 +259,16 @@ fun Application.configureRouting() {
             val token = params["token"] ?: return@post call.respondText("Missing token", status = HttpStatusCode.BadRequest)
             val newPassword = params["newPassword"] ?: return@post call.respondText("Missing new password", status = HttpStatusCode.BadRequest)
 
-            // Найдите пользователя по reset-токену. Например, добавьте метод findByResetToken(token: String)
+            // Проверяем валидность нового пароля
+            if (!isValidPassword(newPassword)) {
+                call.respondText(
+                    "Password must be at least 6 characters and contain both letters and digits",
+                    status = HttpStatusCode.BadRequest
+                )
+                return@post
+            }
+
+            // Найдите пользователя по reset-токену
             val user = userService.findByResetToken(token)
             if (user == null) {
                 call.respondText("Invalid or expired token", status = HttpStatusCode.BadRequest)

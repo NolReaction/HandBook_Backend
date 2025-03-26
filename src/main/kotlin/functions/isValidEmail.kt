@@ -1,4 +1,4 @@
-package com.example
+package com.example.functions
 
 fun isValidEmail(email: String): Boolean {
     // Простой шаблон для валидации email
