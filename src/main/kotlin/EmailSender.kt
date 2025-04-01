@@ -41,7 +41,7 @@ object EmailSender {
                 setFrom(InternetAddress(from))
                 setRecipients(Message.RecipientType.TO, InternetAddress.parse(to))
                 setSubject(subject)
-                setText(body)
+                setContent(body, "text/html; charset=utf-8")
             }
 
             Transport.send(message)

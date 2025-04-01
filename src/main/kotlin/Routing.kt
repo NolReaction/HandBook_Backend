@@ -119,10 +119,17 @@ fun Application.configureRouting() {
                 val authServerLink = "http://176.114.71.165:8080/verify?code=${user.verification_code}"
                 val authTestLink = "http://10.0.2.2:8080/verify?code=${user.verification_code}"
                 val emailBody = """
-                    Добро пожаловать в наше приложение!
-                    Для подтверждения почты перейдите по ссылке:
-                    $authServerLink
+                    <html>
+                      <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                        <div style="background-color: #fff; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                          <h2 style="color: #333;">Добро пожаловать в наше приложение!</h2>
+                          <p style="color: #555;">Для подтверждения почты нажмите на кнопку ниже:</p>
+                          <a href="$authServerLink" style="display: inline-block; padding: 10px 20px; color: #fff; background-color: #007BFF; text-decoration: none; border-radius: 5px; margin-top: 20px;">Подтвердить почту</a>
+                        </div>
+                      </body>
+                    </html>
                 """.trimIndent()
+
 
                 // Отправляем письмо
                 EmailSender.sendEmail(
@@ -166,14 +173,22 @@ fun Application.configureRouting() {
             val resetServerLink = "http://176.114.71.165:8080/reset-password?token=$resetToken"
             val resetTestLink = "http://10.0.2.2:8080/reset-password?token=$resetToken"
             val emailBody = """
-                Для восстановления пароля перейдите по следующей ссылке:
-                $resetServerLink
+                <html>
+                  <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                    <div style="background-color: #fff; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                      <h2 style="color: #333;">Password Reset Request</h2>
+                      <p style="color: #555;">To reset your password, please click the button below:</p>
+                      <a href="$resetServerLink" style="display: inline-block; padding: 10px 20px; margin-top: 20px; color: #fff; background-color: #007BFF; text-decoration: none; border-radius: 5px;">Reset Password</a>
+                    </div>
+                  </body>
+                </html>
             """.trimIndent()
+
 
             // Отправляем письмо с помощью EmailSender
             EmailSender.sendEmail(
                 to = email,
-                subject = "Password Reset Request",
+                subject = "Запрос на восстановление пароля",
                 body = emailBody,
                 from = "authhelper@mail.ru",
                 password = "Eiiws0e7AQ14WtisuJYB"
