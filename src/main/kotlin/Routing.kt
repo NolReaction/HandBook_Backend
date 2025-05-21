@@ -27,6 +27,7 @@ fun Application.configureRouting() {
     // Создаем подключение к БД и инициализируем UserService один раз
     val dbConnection: Connection = connectToPostgres(embedded = false)
     val userService = UserService(dbConnection)
+    val placeService = PlaceService(dbConnection)
 
     install(StatusPages) {
         exception<Throwable> { call, cause ->
@@ -494,6 +495,18 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.Unauthorized, "Invalid token")
             }
         }
+
+        get("/places") {
+            val list = try {
+                placeService.getAll()
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, "Cannot load places")
+                return@get
+            }
+            call.respond(list)
+        }
+
+
 
     }
 }
