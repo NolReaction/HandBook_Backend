@@ -7,12 +7,12 @@ class PlaceService(private val connection: Connection) {
 
     companion object {
         private const val CREATE_TABLE_PLACES = """
-          CREATE TABLE IF NOT EXISTS places (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            rating REAL NOT NULL,
-            description TEXT
-        );
+            CREATE TABLE IF NOT EXISTS places (
+              id SERIAL PRIMARY KEY,
+              name VARCHAR(255) NOT NULL,
+              rating REAL NOT NULL,
+              description TEXT
+            );
         """
 
         // Пара тестовых записей

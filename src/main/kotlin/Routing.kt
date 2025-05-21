@@ -22,6 +22,7 @@ import com.example.functions.isBlocked
 import com.example.functions.recordLoginAttempt
 import com.example.service.HistoryService
 import com.example.service.PlaceService
+import com.example.service.UserService
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 
@@ -531,6 +532,16 @@ fun Application.configureRouting() {
                 val list = historyService.getAll(userId)
                 call.respond(list)
             }
+
+            patch("/profile/username") {
+                val principal = call.principal<JWTPrincipal>()!!
+                val userId = principal.getClaim("userId", Int::class)!!
+                val req = call.receive<UpdateUsernameRequest>()
+                val updated = userService.updateUsername(userId, req.username)
+                    ?: return@patch call.respond(HttpStatusCode.InternalServerError)
+                call.respond(updated)
+            }
+
         }
 
     }
