@@ -1,4 +1,4 @@
-package com.example
+package com.example.service
 
 import com.example.data.model.PlaceDto
 import java.sql.Connection

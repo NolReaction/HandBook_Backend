@@ -20,6 +20,10 @@ import java.sql.Connection
 import java.util.*
 import com.example.functions.isBlocked
 import com.example.functions.recordLoginAttempt
+import com.example.service.HistoryService
+import com.example.service.PlaceService
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 
 
 fun Application.configureRouting() {
@@ -28,6 +32,10 @@ fun Application.configureRouting() {
     val dbConnection: Connection = connectToPostgres(embedded = false)
     val userService = UserService(dbConnection)
     val placeService = PlaceService(dbConnection)
+    val historyService = HistoryService(dbConnection)
+
+    val jwtAudience = "handbook-app"
+    val jwtSecret   = "secret"
 
     install(StatusPages) {
         exception<Throwable> { call, cause ->
@@ -71,7 +79,8 @@ fun Application.configureRouting() {
                     val token = JWT.create()
                         .withClaim("userId", user.id)
                         .withClaim("userEmail", user.email)
-                        .sign(Algorithm.HMAC256("secret"))
+                        .withAudience(jwtAudience)
+                        .sign(Algorithm.HMAC256(jwtSecret))
 
                     val loginResponse = LoginResponse(
                         token = token,
@@ -114,7 +123,8 @@ fun Application.configureRouting() {
                 val token = JWT.create()
                     .withClaim("userId", user.id)
                     .withClaim("userEmail", user.email)
-                    .sign(Algorithm.HMAC256("secret"))
+                    .withAudience(jwtAudience)
+                    .sign(Algorithm.HMAC256(jwtSecret))
 
                 // Формируем тело письма
                 val authServerLink = "http://176.114.71.165:8080/verify?code=${user.verification_code}"
@@ -506,7 +516,22 @@ fun Application.configureRouting() {
             call.respond(list)
         }
 
+        authenticate("jwt") {
+            post("/history") {
+                val principal = call.principal<JWTPrincipal>()!!
+                val userId = principal.getClaim("userId", Int::class)!!
+                val req = call.receive<PlaceIdRequest>()  // simple { placeId: Int }
+                historyService.record(userId, req.placeId)
+                call.respond(HttpStatusCode.Created)
+            }
 
+            get("/history") {
+                val principal = call.principal<JWTPrincipal>()!!
+                val userId = principal.getClaim("userId", Int::class)!!
+                val list = historyService.getAll(userId)
+                call.respond(list)
+            }
+        }
 
     }
 }

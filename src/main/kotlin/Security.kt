@@ -8,22 +8,22 @@ import io.ktor.server.auth.jwt.*
 
 fun Application.configureSecurity() {
     // Please read the jwt property from the config file if you are using EngineMain
-    val jwtAudience = "jwt-audience"
-    val jwtDomain = "https://jwt-provider-domain/"
-    val jwtRealm = "ktor sample app"
+    val jwtAudience = "handbook-app"
+    // val jwtDomain = "https://jwt-provider-domain/"
+    val jwtRealm = "HandbookRealm"
     val jwtSecret = "secret"
-    authentication {
-        jwt {
+    install(Authentication) {
+        jwt("jwt") {
             realm = jwtRealm
             verifier(
                 JWT
                     .require(Algorithm.HMAC256(jwtSecret))
                     .withAudience(jwtAudience)
-                    .withIssuer(jwtDomain)
                     .build()
             )
             validate { credential ->
                 if (credential.payload.audience.contains(jwtAudience)) JWTPrincipal(credential.payload) else null
+                // JWTPrincipal(credential.payload) // Тест
             }
         }
     }
