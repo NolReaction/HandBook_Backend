@@ -46,4 +46,7 @@ dependencies {
 
     // Для html
     implementation("io.ktor:ktor-server-html-builder:3.1.1")
+
+    implementation ("dnsjava:dnsjava:3.5.2")
+
 }

@@ -19,6 +19,7 @@ import org.mindrot.jbcrypt.BCrypt
 import java.sql.Connection
 import java.util.*
 import com.example.functions.isBlocked
+import com.example.functions.isEmailDeliverable
 import com.example.functions.recordLoginAttempt
 import com.example.service.HistoryService
 import com.example.service.PlaceService
@@ -36,11 +37,11 @@ fun Application.configureRouting() {
     val historyService = HistoryService(dbConnection)
 
     val jwtAudience = "handbook-app"
-    val jwtSecret   = "secret"
+    val jwtSecret = "secret"
 
     install(StatusPages) {
         exception<Throwable> { call, cause ->
-            call.respondText(text = "500: $cause" , status = HttpStatusCode.InternalServerError)
+            call.respondText(text = "500: $cause", status = HttpStatusCode.InternalServerError)
         }
     }
 
@@ -99,35 +100,54 @@ fun Application.configureRouting() {
             }
         }
 
-        // Выполняем регистрацию
+        /**
+         * 1) Проверяет синтаксис e-mail (400 — "Неправильный формат")
+         * 2) Проверяет MX-запись (400 — "Такой почты не существует")
+         * 3) Гарантирует, что e-mail не занят (409 — "Пользователь ...")
+         * 4) Открывает JDBC-транзакцию (autoCommit=false)
+         * 5) Вставляет пользователя (без коммита)
+         * 6) Пробует отправить письмо:
+         *    – если com.sun.mail.smtp.SMTPSendFailedException: откатывает и 400 — "Неверный почтовый ящик"
+         *    – если javax.mail.MessagingException: откатывает и 400 — "Ошибка отправки письма"
+         * 7) При любом другом Exception: откатывает и 500 — "Ошибка регистрации..."
+         * 8) Если письмо ушло без exception’ов: коммитит и возвращает JWT + профиль (200)
+         */
         post("/register") {
-            val registerRequest = call.receive<RegisterRequest>()
+            val req = call.receive<RegisterRequest>()
 
-            // Проверяем корректность email
-            if (!isValidEmail(registerRequest.email)) {
-                call.respond(HttpStatusCode.BadRequest, "Invalid email address")
+            // Синтаксис e-mail
+            if (!isValidEmail(req.email)) {
+                call.respond(HttpStatusCode.BadRequest, "Неправильный формат e-mail адреса")
                 return@post
             }
 
-            // Сначала проверяем, существует ли пользователь с таким email
-            val existingUser = userService.getUserByEmail(registerRequest.email)
-            if (existingUser != null) {
-                // Если пользователь уже существует, возвращаем HTTP статус 409 Conflict
-                call.respond(HttpStatusCode.Conflict, "User already exists")
+            // Проверка MX-записи
+            try {
+                if (!isEmailDeliverable(req.email)) {
+                    call.respond(HttpStatusCode.BadRequest, "Такой почты не существует")
+                    return@post
+                }
+            } catch (_: Exception) { /* игнорируем DNS-ошибки */ }
+
+            // Уникальность e-mail
+            if (userService.getUserByEmail(req.email) != null) {
+                call.respond(HttpStatusCode.Conflict, "Пользователь с таким e-mail уже зарегистрирован")
                 return@post
             }
 
-            // Если пользователь не найден, выполняем регистрацию
-            val user = userService.registerUser(registerRequest.email, registerRequest.password)
-            if (user != null) {
-                // Генерируем token
-                val token = JWT.create()
-                    .withClaim("userId", user.id)
-                    .withClaim("userEmail", user.email)
-                    .withAudience(jwtAudience)
-                    .sign(Algorithm.HMAC256(jwtSecret))
+            // Транзакция
+            dbConnection.autoCommit = false
+            try {
+                // Вставляем пользователя
+                val verificationCode = UUID.randomUUID().toString()
+                val user = userService.registerUserWithCode(
+                    connection        = dbConnection,
+                    email             = req.email,
+                    rawPassword       = req.password,
+                    verificationCode  = verificationCode
+                )
 
-                // Формируем тело письма
+                // Готовим письмо
                 val authServerLink = "http://176.114.71.165:8080/verify?code=${user.verification_code}"
                 val authTestLink = "http://10.0.2.2:8080/verify?code=${user.verification_code}"
                 val emailBody = """
@@ -142,26 +162,52 @@ fun Application.configureRouting() {
                     </html>
                 """.trimIndent()
 
-
-                // Отправляем письмо
+                // Пытаемся отправить письмо
                 EmailSender.sendEmail(
-                    to = registerRequest.email,
-                    subject = "Подтверждение регистрации",
-                    body = emailBody,
-                    from = "authhelper@mail.ru",
+                    to       = req.email,
+                    subject  = "Подтвердите регистрацию",
+                    body     = emailBody,
+                    from     = "authhelper@mail.ru",
                     password = "Eiiws0e7AQ14WtisuJYB"
                 )
 
-                // Отправляем ответ клиенту
-                val registerResponse = RegisterResponse(
-                    token = token,
-                    userId = user.id!!,
-                    userEmail = user.email,
-                    is_verified = false
+                // Если письмо ушло — коммитим
+                dbConnection.commit()
+
+                // Генерим JWT и отвечаем
+                val token = JWT.create()
+                    .withClaim("userId",    user.id)
+                    .withClaim("userEmail", user.email)
+                    .withAudience(jwtAudience)
+                    .sign(Algorithm.HMAC256(jwtSecret))
+
+                call.respond(
+                    RegisterResponse(
+                        token       = token,
+                        userId      = user.id!!,
+                        userEmail   = user.email,
+                        is_verified = false
+                    )
                 )
-                call.respond(registerResponse)
-            } else {
-                call.respond(HttpStatusCode.BadRequest, "Registration failed")
+
+            } catch (e: com.sun.mail.smtp.SMTPSendFailedException) {
+                // Конкретно 550 / invalid mailbox
+                dbConnection.rollback()
+                call.respond(HttpStatusCode.BadRequest, "Неверный почтовый ящик")
+
+            } catch (e: javax.mail.MessagingException) {
+                // Любая другая почтовая ошибка
+                dbConnection.rollback()
+                call.respond(HttpStatusCode.BadRequest, "Ошибка отправки письма")
+
+            } catch (e: Exception) {
+                // Всё остальное — внутренняя ошибка
+                dbConnection.rollback()
+                call.respond(HttpStatusCode.InternalServerError, "Ошибка регистрации, попробуйте позже")
+
+            } finally {
+                // Восстанавливаем autoCommit
+                dbConnection.autoCommit = true
             }
         }
 
@@ -219,7 +265,8 @@ fun Application.configureRouting() {
                     title { +"Reset Password" }
                     style {
                         unsafe {
-                            raw("""
+                            raw(
+                                """
                         body {
                             font-family: Arial, sans-serif;
                             background-color: #f4f4f4;
@@ -260,7 +307,8 @@ fun Application.configureRouting() {
                         input[type="submit"]:hover {
                             background-color: #0056b3;
                         }
-                    """.trimIndent())
+                    """.trimIndent()
+                            )
                         }
                     }
                 }
@@ -283,8 +331,12 @@ fun Application.configureRouting() {
 
         post("/reset-password") {
             val params = call.receiveParameters()
-            val token = params["token"] ?: return@post call.respondText("Missing token", status = HttpStatusCode.BadRequest)
-            val newPassword = params["newPassword"] ?: return@post call.respondText("Missing new password", status = HttpStatusCode.BadRequest)
+            val token =
+                params["token"] ?: return@post call.respondText("Missing token", status = HttpStatusCode.BadRequest)
+            val newPassword = params["newPassword"] ?: return@post call.respondText(
+                "Missing new password",
+                status = HttpStatusCode.BadRequest
+            )
 
             // Проверяем валидность нового пароля
             if (!isValidPassword(newPassword)) {
@@ -536,10 +588,32 @@ fun Application.configureRouting() {
             patch("/profile/username") {
                 val principal = call.principal<JWTPrincipal>()!!
                 val userId = principal.getClaim("userId", Int::class)!!
+
+                // 1. Принимаем новое имя
                 val req = call.receive<UpdateUsernameRequest>()
-                val updated = userService.updateUsername(userId, req.username)
-                    ?: return@patch call.respond(HttpStatusCode.InternalServerError)
-                call.respond(updated)
+                val newUsername = req.username.trim()
+
+                // 2. Проверяем формат и длину
+                val validRe = Regex("^[A-Za-z0-9]{1,12}$")
+                if (!validRe.matches(newUsername)) {
+                    return@patch call.respond(
+                        HttpStatusCode.BadRequest,
+                        "Username must be 1–12 characters long, only Latin letters and digits"
+                    )
+                }
+
+                // 3. Проверяем, не занято ли имя (реализуйте метод в сервисе)
+                if (userService.isUsernameTaken(newUsername, excludeUserId = userId)) {
+                    return@patch call.respond(
+                        HttpStatusCode.Conflict,
+                        "Username '$newUsername' is already taken"
+                    )
+                }
+
+                // 4. Обновляем
+                val updatedDto = userService.updateUsername(userId, newUsername)
+                    ?: return@patch call.respond(HttpStatusCode.InternalServerError, "Failed to update username")
+                call.respond(updatedDto)
             }
 
         }
