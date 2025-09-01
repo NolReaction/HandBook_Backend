@@ -60,7 +60,7 @@ fun Application.configureRouting() {
             val ipAddress = call.request.origin.remoteHost
 
             if (isBlocked(ipAddress)) {
-                call.respond(HttpStatusCode.TooManyRequests, "Too many failed attempts. Please try again later.")
+                call.respond(HttpStatusCode.TooManyRequests, "Слишком много неудачных попыток. Попробуйте ещё раз позже.")
                 return@post
             }
 
@@ -154,7 +154,7 @@ fun Application.configureRouting() {
                     <html>
                       <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
                         <div style="background-color: #fff; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                          <h2 style="color: #333;">Добро пожаловать в наше приложение!</h2>
+                          <h2 style="color: #333;">Добро пожаловать в наше приложение !</h2>
                           <p style="color: #555;">Для подтверждения почты нажмите на кнопку ниже:</p>
                           <a href="$authServerLink" style="display: inline-block; padding: 10px 20px; color: #fff; background-color: #007BFF; text-decoration: none; border-radius: 5px; margin-top: 20px;">Подтвердить почту</a>
                         </div>
@@ -217,7 +217,7 @@ fun Application.configureRouting() {
             val user = userService.getUserByEmail(email)
 
             // Генерируем один и тот же ответ, чтобы не палить, есть ли такой email
-            val responseBody = ForgotPasswordMessageResponse("If this email is registered, a reset link has been sent")
+            val responseBody = ForgotPasswordMessageResponse("Если этот адрес электронной почты зарегистрирован, ссылка для сброса была отправлена")
 
             if (user == null) {
                 call.respond(HttpStatusCode.OK, responseBody)
@@ -234,8 +234,8 @@ fun Application.configureRouting() {
                 <html>
                   <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
                     <div style="background-color: #fff; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-                      <h2 style="color: #333;">Password Reset Request</h2>
-                      <p style="color: #555;">To reset your password, please click the button below:</p>
+                      <h2 style="color: #333;">Запрос на сброс пароля</h2>
+                      <p style="color: #555;">Чтобы сбросить пароль, нажмите кнопку ниже::</p>
                       <a href="$resetServerLink" style="display: inline-block; padding: 10px 20px; margin-top: 20px; color: #fff; background-color: #007BFF; text-decoration: none; border-radius: 5px;">Reset Password</a>
                     </div>
                   </body>
@@ -314,15 +314,15 @@ fun Application.configureRouting() {
                 }
                 body {
                     div(classes = "container") {
-                        h1 { +"Reset Your Password" }
+                        h1 { +"Сбросьте ваш пароль" }
                         form(action = "/reset-password", method = FormMethod.post) {
                             hiddenInput { name = "token"; value = token }
                             passwordInput {
-                                name = "newPassword"
-                                placeholder = "Enter new password"
+                                name = "Новый пароль"
+                                placeholder = "Введите новый пароль\n"
                             }
                             br
-                            submitInput { value = "Reset Password" }
+                            submitInput { value = "Сбросить пароль" }
                         }
                     }
                 }
@@ -386,14 +386,14 @@ fun Application.configureRouting() {
                     }
                     body {
                         div(classes = "container") {
-                            h1 { +"Invalid Password" }
+                            h1 { +"Неверный пароль" }
                             p(classes = "error") {
-                                +"Password must be at least 6 characters and contain both letters and digits"
+                                +"Пароль должен быть длиной не менее 6 символов и содержать как буквы, так и цифры"
                             }
                             // Кнопка, которая при нажатии возвращает пользователя на предыдущую страницу
                             button(type = ButtonType.button) {
                                 attributes["onclick"] = "history.back()"
-                                +"Go Back"
+                                +"Вернуться назад"
                             }
                         }
                     }
@@ -460,8 +460,8 @@ fun Application.configureRouting() {
                     }
                     body {
                         div(classes = "container") {
-                            h1 { +"Password Reset Successful" }
-                            p { +"Your password has been reset successfully. You can now log in with your new password." }
+                            h1 { +"Сброс пароля успешен" }
+                            p { +"Ваш пароль успешно сброшен. Теперь вы можете войти, используя новый пароль." }
                         }
                     }
                 }
@@ -521,8 +521,8 @@ fun Application.configureRouting() {
                     }
                     body {
                         div("container") {
-                            h1 { +"Email confirmed !" }
-                            p { +"Your email has been successfully verified. You can now log in." }
+                            h1 { +"Электронная почта подтверждена !" }
+                            p { +"Ваш адрес электронной почты успешно подтверждён. Теперь вы можете войти." }
                         }
                     }
                 }
@@ -598,7 +598,7 @@ fun Application.configureRouting() {
                 if (!validRe.matches(newUsername)) {
                     return@patch call.respond(
                         HttpStatusCode.BadRequest,
-                        "Username must be 1–12 characters long, only Latin letters and digits"
+                        "Имя пользователя должно быть длиной от 1 до 12 символов, только латинские буквы и цифры"
                     )
                 }
 
