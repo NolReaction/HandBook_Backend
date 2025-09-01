@@ -236,7 +236,7 @@ fun Application.configureRouting() {
                     <div style="background-color: #fff; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
                       <h2 style="color: #333;">Запрос на сброс пароля</h2>
                       <p style="color: #555;">Чтобы сбросить пароль, нажмите кнопку ниже::</p>
-                      <a href="$resetServerLink" style="display: inline-block; padding: 10px 20px; margin-top: 20px; color: #fff; background-color: #007BFF; text-decoration: none; border-radius: 5px;">Reset Password</a>
+                      <a href="$resetServerLink" style="display: inline-block; padding: 10px 20px; margin-top: 20px; color: #fff; background-color: #007BFF; text-decoration: none; border-radius: 5px;">Сбросить пароль</a>
                     </div>
                   </body>
                 </html>
@@ -318,7 +318,7 @@ fun Application.configureRouting() {
                         form(action = "/reset-password", method = FormMethod.post) {
                             hiddenInput { name = "token"; value = token }
                             passwordInput {
-                                name = "Новый пароль"
+                                name = "newPassword"
                                 placeholder = "Введите новый пароль\n"
                             }
                             br
