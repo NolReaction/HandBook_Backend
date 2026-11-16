@@ -5,17 +5,10 @@ ktor:
     deployment:
         port: 8080
 
-# Серверное решение
+# Local defaults. Passwords are read from environment variables, never this file.
 postgres:
-  url: "jdbc:postgresql://176.114.71.165:5432/maindatabase"
-  user: selectel
-  password: "2318"
-
-# Тестовое решение
-#postgres:
-#  url: "jdbc:postgresql://localhost:5432/HandBook"
-#  user: sharky
-#  password: ""
+  url: "jdbc:postgresql://localhost:5432/handbook"
+  user: "handbook"
 
 jwt:
   domain: "https://jwt-provider-domain/"

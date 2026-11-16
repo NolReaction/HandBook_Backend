@@ -1,48 +1,76 @@
-# HandBook_Backend
+# HandBook — Kotlin backend справочника мест
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+Серверная часть университетского проекта HandBook: API для Android-клиента, аккаунты пользователей, каталог мест и история обращений. Это первый учебный опыт автора в разработке собственного backend и взаимодействии клиента с сервером.
 
-Here are some useful links to get you started:
+Android-приложение: [HandBook_Client](https://github.com/NolReaction/HandBook_Client).
 
-- [Ktor Documentation](https://ktor.io/docs/home.html)
-- [Ktor GitHub page](https://github.com/ktorio/ktor)
-- The [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). You'll need to [request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up) to join.
+**Статус:** историческая учебная работа. Проект показывает сквозной сценарий от мобильного экрана до HTTP API и SQL-базы; готовность к публичной эксплуатации не заявлена.
 
-## Features
+## Реализованные сценарии
 
-Here's a list of features included in this project:
+- Регистрация, подтверждение email, вход и выдача JWT.
+- Восстановление пароля через письмо и HTML-форму на сервере.
+- Получение профиля и изменение имени пользователя.
+- Каталог мест и история выбранных мест для авторизованного пользователя.
+- Хеширование пользовательских паролей через BCrypt.
+- Создание таблиц и заполнение демонстрационного каталога сервисами при старте.
 
-| Name                                                                   | Description                                                                        |
-| ------------------------------------------------------------------------|------------------------------------------------------------------------------------ |
-| [Routing](https://start.ktor.io/p/routing)                             | Provides a structured routing DSL                                                  |
-| [kotlinx.serialization](https://start.ktor.io/p/kotlinx-serialization) | Handles JSON serialization using kotlinx.serialization library                     |
-| [Content Negotiation](https://start.ktor.io/p/content-negotiation)     | Provides automatic content conversion according to Content-Type and Accept headers |
-| [Postgres](https://start.ktor.io/p/postgres)                           | Adds Postgres database to your application                                         |
-| [Compression](https://start.ktor.io/p/compression)                     | Compresses responses using encoding algorithms like GZIP                           |
-| [Status Pages](https://start.ktor.io/p/status-pages)                   | Provides exception handling for routes                                             |
-| [Call Logging](https://start.ktor.io/p/call-logging)                   | Logs client requests                                                               |
-| [CORS](https://start.ktor.io/p/cors)                                   | Enables Cross-Origin Resource Sharing (CORS)                                       |
-| [Authentication](https://start.ktor.io/p/auth)                         | Provides extension point for handling the Authorization header                     |
-| [Authentication JWT](https://start.ktor.io/p/auth-jwt)                 | Handles JSON Web Token (JWT) bearer authentication scheme                          |
+## Технологии и структура
 
-## Building & Running
+**Kotlin 2.1.10 · Ktor 3.1.1 / Netty · kotlinx.serialization · PostgreSQL / JDBC · JWT · BCrypt · JavaMail · Gradle.** H2 присутствует как отдельная embedded-ветка подключения; обычный запуск использует PostgreSQL.
 
-To build or run the project, use one of the following tasks:
+| Часть | Где смотреть |
+| --- | --- |
+| Сборка и зависимости | [build.gradle.kts](build.gradle.kts), [libs.versions.toml](gradle/libs.versions.toml) |
+| Подключение модулей Ktor | [Application.kt](src/main/kotlin/Application.kt) |
+| HTTP-маршруты | [Routing.kt](src/main/kotlin/Routing.kt) |
+| JWT-аутентификация | [Security.kt](src/main/kotlin/Security.kt) |
+| SQL и работа с данными | [service](src/main/kotlin/service), [Databases.kt](src/main/kotlin/Databases.kt) |
+| Модели запросов и ответов | [data/model](src/main/kotlin/data/model) |
+| Отправка писем | [EmailSender.kt](src/main/kotlin/EmailSender.kt) |
+| Конфигурация | [application.yaml](src/main/resources/application.yaml), [RuntimeConfig.kt](src/main/kotlin/RuntimeConfig.kt) |
 
-| Task                          | Description                                                          |
-| -------------------------------|---------------------------------------------------------------------- |
-| `./gradlew test`              | Run the tests                                                        |
-| `./gradlew build`             | Build everything                                                     |
-| `buildFatJar`                 | Build an executable JAR of the server with all dependencies included |
-| `buildImage`                  | Build the docker image to use with the fat JAR                       |
-| `publishImageToLocalRegistry` | Publish the docker image locally                                     |
-| `run`                         | Run the server                                                       |
-| `runDocker`                   | Run using the local docker image                                     |
+## Запуск
 
-If the server starts successfully, you'll see the following output:
+Нужны JDK 17, собственная PostgreSQL и доступ к зависимостям Gradle. В репозитории сохранён Gradle Wrapper 8.4. Запускайте из корня проекта; в Windows используйте `gradlew.bat` вместо `./gradlew`.
 
-```
-2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
-2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
+1. Создайте локальную базу `handbook` и пользователя `handbook` с собственным паролем и правами на создание таблиц в этой базе. Сервисы сами создают свои таблицы при запуске; отдельного инструмента миграций здесь нет.
+2. Передайте настройки через окружение процесса или Run Configuration IDE. Пароли и JWT secret в файлы репозитория не записывайте.
+3. Для регистрации и восстановления пароля настройте отправку почты. Текущий `EmailSender` использует `smtp.mail.ru` и SSL-порт 465; нужен подходящий аккаунт и пароль приложения.
+4. Запустите сервер:
+
+```bash
+./gradlew run
 ```
 
+API слушает порт **8080**. Для проверки каталога после успешного запуска можно открыть <http://localhost:8080/places>. Адрес Android-клиента настраивается отдельно в его `RetrofitProvider`.
+
+### Переменные окружения
+
+| Переменная | Назначение и значение по умолчанию |
+| --- | --- |
+| `HANDBOOK_DATABASE_URL` | JDBC URL; `jdbc:postgresql://localhost:5432/handbook` |
+| `HANDBOOK_DATABASE_USER` | Пользователь БД; `handbook` |
+| `HANDBOOK_DATABASE_PASSWORD` | Обязательный пароль вашей БД; значения по умолчанию нет |
+| `HANDBOOK_JWT_SECRET` | Обязательный собственный случайный ключ подписи JWT; значения по умолчанию нет |
+| `HANDBOOK_SMTP_FROM` | Адрес отправителя и SMTP login; обязателен при отправке письма |
+| `HANDBOOK_SMTP_PASSWORD` | Пароль приложения SMTP; обязателен при отправке письма |
+| `HANDBOOK_PUBLIC_BASE_URL` | Базовый URL ссылок в письмах; `http://localhost:8080` |
+
+Ключ JWT можно сгенерировать локально, например `openssl rand -hex 32`, и передать результат через окружение. Базовый URL для писем должен открываться на устройстве получателя: `localhost` подходит только для браузера на самом сервере. Для телефона задайте доступный ему LAN-адрес или hostname.
+
+Старые опубликованные реквизиты удалены из текущей конфигурации, но это не удаляет их из истории Git. Если соответствующие БД или почтовый аккаунт ещё действуют, их реквизиты необходимо сменить у провайдера.
+
+## Проверки и ограничения
+
+Изолированные тесты чтения конфигурации не используют базу данных и почту:
+
+```bash
+./gradlew test --tests com.example.RuntimeConfigTest
+```
+
+Тест проверяет обязательные значения, отказ при пропущенном/пустом секрете и локальные defaults. При обновлении документации YAML и подключение параметров проверены статически; запуск Gradle-тестов в рабочем окружении остановился на недоступной загрузке дистрибутива Gradle. Успешная сборка или интеграционная проверка здесь не заявлены.
+
+Исходный `ApplicationTest` запускает модуль приложения, которому нужна БД. Поэтому общий `./gradlew test` не является автономной проверкой без внешних ресурсов. Подключение к старому удалённому серверу для проверки проекта не требуется.
+
+Это учебный backend: перед публичным использованием нужны отдельная проверка обработки ошибок и доступа, HTTPS, управляемые миграции и полноценные интеграционные тесты. Примеры каталога и API сохранены для изучения вместе с Android-клиентом.

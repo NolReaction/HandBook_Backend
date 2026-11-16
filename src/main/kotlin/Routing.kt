@@ -36,8 +36,9 @@ fun Application.configureRouting() {
     val placeService = PlaceService(dbConnection)
     val historyService = HistoryService(dbConnection)
 
+    val publicBaseUrl = environmentValue("HANDBOOK_PUBLIC_BASE_URL", "http://localhost:8080").trimEnd('/')
     val jwtAudience = "handbook-app"
-    val jwtSecret = "secret"
+    val jwtSecret = environmentValue("HANDBOOK_JWT_SECRET")
 
     install(StatusPages) {
         exception<Throwable> { call, cause ->
@@ -148,8 +149,7 @@ fun Application.configureRouting() {
                 )
 
                 // Готовим письмо
-                val authServerLink = "http://176.114.71.165:8080/verify?code=${user.verification_code}"
-                val authTestLink = "http://10.0.2.2:8080/verify?code=${user.verification_code}"
+                val authServerLink = "$publicBaseUrl/verify?code=${user.verification_code}"
                 val emailBody = """
                     <html>
                       <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -166,9 +166,7 @@ fun Application.configureRouting() {
                 EmailSender.sendEmail(
                     to       = req.email,
                     subject  = "Подтвердите регистрацию",
-                    body     = emailBody,
-                    from     = "authhelper@mail.ru",
-                    password = "Eiiws0e7AQ14WtisuJYB"
+                    body     = emailBody
                 )
 
                 // Если письмо ушло — коммитим
@@ -228,8 +226,7 @@ fun Application.configureRouting() {
             userService.updateResetToken(user.id!!, resetToken)
 
             // Формируем ссылку для сброса пароля
-            val resetServerLink = "http://176.114.71.165:8080/reset-password?token=$resetToken"
-            val resetTestLink = "http://10.0.2.2:8080/reset-password?token=$resetToken"
+            val resetServerLink = "$publicBaseUrl/reset-password?token=$resetToken"
             val emailBody = """
                 <html>
                   <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -247,9 +244,7 @@ fun Application.configureRouting() {
             EmailSender.sendEmail(
                 to = email,
                 subject = "Запрос на восстановление пароля",
-                body = emailBody,
-                from = "authhelper@mail.ru",
-                password = "Eiiws0e7AQ14WtisuJYB"
+                body = emailBody
             )
             call.respond(HttpStatusCode.OK, responseBody)
         }

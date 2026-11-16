@@ -26,10 +26,10 @@ fun Application.connectToPostgres(embedded: Boolean): Connection {
     }
     else {
         // Строка подключения к базе
-        val url = environment.config.property("postgres.url").getString()
-        log.info("Connecting to postgres database at $url")
-        val user = environment.config.property("postgres.user").getString()
-        val password = environment.config.property("postgres.password").getString()
+        val url = environmentValue("HANDBOOK_DATABASE_URL", environment.config.property("postgres.url").getString())
+        log.info("Connecting to configured PostgreSQL database")
+        val user = environmentValue("HANDBOOK_DATABASE_USER", environment.config.property("postgres.user").getString())
+        val password = environmentValue("HANDBOOK_DATABASE_PASSWORD")
 
         return DriverManager.getConnection(url, user, password)
     }

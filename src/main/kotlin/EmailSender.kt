@@ -14,8 +14,8 @@ object EmailSender {
         to: String,
         subject: String,
         body: String,
-        from: String = "authhelper@mail.ru",
-        password: String = "Eiiws0e7AQ14WtisuJYB"
+        from: String = environmentValue("HANDBOOK_SMTP_FROM"),
+        password: String = environmentValue("HANDBOOK_SMTP_PASSWORD")
     ) {
         val props = Properties().apply {
             put("mail.smtp.auth", "true")
